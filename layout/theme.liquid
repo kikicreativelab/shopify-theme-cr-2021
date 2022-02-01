@@ -1,132 +1,123 @@
-<!-- test -->
-
 <!doctype html>
-<html class="no-touch no-js" lang="{{ request.locale.iso_code }}">
+<html class="no-js" lang="{{ shop.locale }}">
 <head>
-  <script>(function(H){H.className=H.className.replace(/\bno-js\b/,'js')})(document.documentElement)</script>
-  <!-- Basic page needs ================================================== -->
   <meta charset="utf-8">
   <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="{{ settings.color_button }}">
+  <link rel="canonical" href="{{ canonical_url }}">
 
-  {% if settings.favicon %}
-  <link rel="shortcut icon" href="{{ settings.favicon | img_url: '32x32' }}" type="image/png" />
-  {% endif %}
+  {%- if settings.favicon != blank -%}
+    <link rel="shortcut icon" href="{{ settings.favicon | img_url: '32x32' }}" type="image/png">
+  {%- endif -%}
 
-  <!-- Title and description ================================================== -->
-  <title>
-  {{ page_title }}{% if current_tags %}{% assign current_tags_joined = current_tags | join: ', ' %} &ndash; {{ 'general.meta.tags' | t: tags: current_tags_joined }}{% endif %}{% if current_page != 1 %} &ndash; {{ 'general.meta.page' | t: page: current_page }}{% endif %}{% unless page_title contains shop.name %} &ndash; {{ shop.name }}{% endunless %}
-  </title>
+  {%- capture seo_title -%}
+    {%- if template == 'search' and search.performed == true -%}
+      {{ 'general.search.heading' | t: count: search.results_count }}: {{ 'general.search.results_with_count' | t: terms: search.terms, count: search.results_count }}
+    {%- else -%}
+      {{ page_title }}
+    {%- endif -%}
+    {%- if current_tags -%}
+      {%- assign meta_tags = current_tags | join: ', ' -%} &ndash; {{ 'general.meta.tags' | t: tags: meta_tags -}}
+    {%- endif -%}
+    {%- if current_page != 1 -%}
+      &ndash; {{ 'general.meta.page' | t: page: current_page }}
+    {%- endif -%}
+    {%- assign escaped_page_title = page_title | escape -%}
+    {%- unless escaped_page_title contains shop.name -%}
+      &ndash; {{ shop.name }}
+    {%- endunless -%}
+  {%- endcapture -%}
+  <title>{{ seo_title | strip }}</title>
 
-  {% if page_description %}
+  {%- if page_description -%}
     <meta name="description" content="{{ page_description | escape }}">
-  {% endif %}
+  {%- endif -%}
 
-  <!-- Product meta ================================================== -->
   {% include 'social-meta-tags' %}
 
-  <!-- CSS3 variables ================================================== -->
-  {% render 'css-variables' %}
-
-  <!-- Helpers ================================================== -->
-  <link rel="canonical" href="{{ canonical_url }}">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-
-  <!-- CSS ================================================== -->
   {{ 'theme.scss.css' | asset_url | stylesheet_tag }}
 
   <script>
-
-    var moneyFormat = '{{ shop.money_format }}';
-
     var theme = {
-      strings:{
-        product:{
-          unavailable: {{ 'products.product.unavailable' | t | json }},
-          will_be_in_stock_after:{{ 'products.product.will_be_in_stock_after' | t: date: '[date]' | json }},
-          only_left:{{ 'products.product.only_left' | t: count: '1' | json }},
-          unitPrice: {{ 'products.product.unit_price_label' | t | json }},
-          unitPriceSeparator: {{ 'general.accessibility.unit_price_separator' | t | json }}
-        },
-        navigation:{
-          more_link: {{ 'layout.navigation.more' | t | json }}
-        },
-        map:{
-          addressError: {{ 'map.errors.address_error' | t | json }},
-          addressNoResults: {{ 'map.errors.address_no_results' | t | json }},
-          addressQueryLimit: {{ 'map.errors.address_query_limit_html' | t | json }},
-          authError: {{ 'map.errors.auth_error_html' | t | json }}
-        }
+      strings: {
+        addToCart: {{ 'products.product.add_to_cart' | t | json }},
+        soldOut: {{ 'products.product.sold_out' | t | json }},
+        unavailable: {{ 'products.product.unavailable' | t | json }},
+        regularPrice: {{ 'products.product.regular_price' | t | json }},
+        sale: {{ 'products.product.on_sale' | t | json }},
+        showMore: {{ 'general.filters.show_more' | t | json }},
+        showLess: {{ 'general.filters.show_less' | t | json }},
+        addressError: {{ 'sections.map.address_error' | t | json }},
+        addressNoResults: {{ 'sections.map.address_no_results' | t | json }},
+        addressQueryLimit: {{ 'sections.map.address_query_limit_html' | t | json }},
+        authError: {{ 'sections.map.auth_error_html' | t | json }},
+        newWindow: {{ 'general.accessibility.link_messages.new_window' | t | json }},
+        external: {{ 'general.accessibility.link_messages.external' | t | json }},
+        newWindowExternal: {{ 'general.accessibility.link_messages.new_window_and_external' | t | json }},
+        quantityMinimumMessage: {{ 'products.product.quantity_minimum_message' | t | json }}
       },
-      settings:{
-        cartType: {{ settings.ajax_cart_method | json }}
-      }
-    };
+      moneyFormat: {{ shop.money_format | json }}
+    }
 
-    {%- if template == 'collection' -%}
-      {%- if current_tags -%}
-        {%- capture tag_handles -%}
-            {%- for tag in current_tags -%}
-              {{- tag | handle | append: '|' -}}
-            {%- endfor -%}
-        {%- endcapture -%}
-      {%- endif -%}
-      theme.breadcrumbs = {
-        collection: {
-          title: {{ collection.title | json }},
-          link: "{{ shop.url }}{{ collection.url }}{%- if current_tags -%}/{{- tag_handles | split: '|' | join: '+' -}}{%- endif -%}"
-        }
-      };
-      sessionStorage.setItem("breadcrumb", JSON.stringify(theme.breadcrumbs.collection));
+    document.documentElement.className = document.documentElement.className.replace('no-js', 'js');
+  </script>
 
-    {%- elsif template != 'product' -%}
-      if (sessionStorage.getItem("breadcrumb")) {
-        sessionStorage.removeItem("breadcrumb")
-      }
-    {%- endif -%}
-    </script>
 
-  <!-- Header hook for plugins ================================================== -->
-  {{ content_for_header }}
+  {%- if template.directory == 'customers' -%}
+    <script src="{{ 'shopify_common.js' | shopify_asset_url }}" defer="defer"></script>
+  {%- endif -%}
 
-  {% comment %}
-    If you store has customers disabled, you can remove the following JS file
-  {% endcomment %}
-  {% if request.page_type contains 'customers/' %}
-    {{ 'shopify_common.js' | shopify_asset_url | script_tag }}
-    {{ 'customer_area.js'  | shopify_asset_url | script_tag }}
-  {% endif %}
-
-  {{ 'jquery-2.2.3.min.js' | asset_url | script_tag }}
-
-  <script src="{{ 'lazysizes.min.js' | asset_url }}" async="async"></script>
+  <script src="{{ 'lazysizes.js' | asset_url }}" async="async"></script>
   <script src="{{ 'vendor.js' | asset_url }}" defer="defer"></script>
   <script src="{{ 'theme.js' | asset_url }}" defer="defer"></script>
 
-
+  {{ content_for_header }}
 </head>
 
-<body id="{{ page_title | handle }}" class="{% if customer %}customer-logged-in {% endif %}template-{{ request.page_type | handle }}">
+<body class="template-{{ template | split: '.' | first }}">
+
+  <a class="in-page-link visually-hidden skip-link" href="#MainContent">{{ 'general.accessibility.skip_to_content' | t }}</a>
+
+  <div id="SearchDrawer" class="search-bar drawer drawer--top" role="dialog" aria-modal="true" aria-label="{{ 'general.search.placeholder' | t }}">
+    <div class="search-bar__table">
+      <div class="search-bar__table-cell search-bar__form-wrapper">
+        <form class="search search-bar__form" action="/search" method="get" role="search">
+          <input class="search__input search-bar__input" type="search" name="q" value="{{ search.terms | escape }}" placeholder="{{ 'general.search.placeholder' | t }}" aria-label="{{ 'general.search.placeholder' | t }}">
+          <button class="search-bar__submit search__submit btn--link" type="submit">
+            {% include 'icon-search' %}
+            <span class="icon__fallback-text">{{ 'general.search.submit' | t }}</span>
+          </button>
+        </form>
+      </div>
+      <div class="search-bar__table-cell text-right">
+        <button type="button" class="btn--link search-bar__close js-drawer-close">
+          {% include 'icon-close' %}
+          <span class="icon__fallback-text">{{ 'general.search.close' | t }}</span>
+        </button>
+      </div>
+    </div>
+  </div>
 
   {% section 'header' %}
 
-  <main class="wrapper main-content{% if request.page_type == blank %} main-content--no-template{% endif %}" role="main">
+  <div class="page-container" id="PageContainer">
 
-    {{ content_for_layout }}
+    <main class="main-content js-focus-hidden" id="MainContent" role="main" tabindex="-1">
+      {{ content_for_layout }}
+    </main>
 
-  </main>
+    {% section 'footer' %}
 
-  {% section 'footer' %}
+    <div id="slideshow-info" class="visually-hidden" aria-hidden="true">
+      {{- 'sections.slideshow.navigation_instructions' | t -}}
+    </div>
 
-  {% if settings.ajax_cart_method != 'page' %}
-
-    {% include 'ajax-cart-template' %}
-
-  {% endif %}
+  </div>
 
   <ul hidden>
     <li id="a11y-refresh-page-message">{{ 'general.accessibility.refresh_page' | t }}</li>
+    <li id="a11y-selection-message">{{ 'general.accessibility.selection_help' | t }}</li>
   </ul>
-
-
 </body>
 </html>
