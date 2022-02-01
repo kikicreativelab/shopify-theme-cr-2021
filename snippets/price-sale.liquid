@@ -14,6 +14,10 @@
 
 {{ 'products.general.save_html' | t: saved_amount: saved_amount }}
 
+{% if compare_price > product_price %}
+  ({{ compare_price | minus: product_price | times: 100 | divided_by: compare_price | round }}% off)
+{% endif %}
+
 {% comment %}
 {% if compare_price > product_price %}
   Save {{ compare_price | minus: product_price | times: 100 | divided_by: compare_price | round }}%

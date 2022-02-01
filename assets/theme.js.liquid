@@ -272,8 +272,7 @@ var ajaxifyShopify = (function(module, $) {
     // Default settings
     settings = {
       method: 'drawer', // Method options are drawer, modal, and flip. Default is drawer.
-      formSelector: '[data-product-form]',
-      cartFormSelector: '[data-cart-form]',
+      formSelector: 'form[action^="/cart/add"]',
       addToCartSelector: 'input[type="submit"]',
       cartCountSelector: null,
       cartCostSelector: null,
@@ -393,9 +392,8 @@ var ajaxifyShopify = (function(module, $) {
     // Wrap the add to cart button in a div
     $addToCart.addClass('flip-front').wrap('<div class="flip"></div>');
 
-    var cartUrl = $cartContainer.data('cart-url');
     // Write a (hidden) Checkout button, a loader, and the extra view cart button
-    var checkoutBtn = $('<a href="' + cartUrl + '" class="flip-back" style="background-color: #C00; color: #fff;" id="flip-checkout">' + {{ 'cart.general.checkout' | t | json }} + '</a>').addClass($btnClass),
+    var checkoutBtn = $('<a href="/cart" class="flip-back" style="background-color: #C00; color: #fff;" id="flip-checkout">' + {{ 'cart.general.checkout' | t | json }} + '</a>').addClass($btnClass),
         flipLoader = $('<span class="ajaxifyCart-loader"></span>'),
         flipExtra = $('<div class="flip-extra">' + {{ 'cart.general.or' | t | json }} + ' <a href="#" class="flip-cart">' + {{ 'cart.general.view_cart' | t | json }} + ' (<span></span>)</a></div>');
 
@@ -752,7 +750,7 @@ var ajaxifyShopify = (function(module, $) {
 
     // Show empty cart
     if (cart.item_count === 0) {
-      $cartContainer.append('<h2>' + {{ 'cart.general.empty' | t | json }} + '</h2><span class="cart--continue-message">' + {{ 'cart.general.continue_browsing_html' | t: link: routes.all_products_collection_url | json }} + '</span><span class="cart--cookie-message">' + {{ 'cart.general.cookies_required' | t | json }} + '</span>');
+      $cartContainer.append('<h2>' + {{ 'cart.general.empty' | t | json }} + '</h2><span class="cart--continue-message">' + {{ 'cart.general.continue_browsing_html' | t | json }} + '</span><span class="cart--cookie-message">' + {{ 'cart.general.cookies_required' | t | json }} + '</span>');
 
       switch (settings.method) {
         case 'modal':
@@ -849,9 +847,7 @@ var ajaxifyShopify = (function(module, $) {
   };
 
   cartTemplate = function (cart) {
-    var cartUrl = $cartContainer.data('cart-url');
-
-    $cartContainer.load(cartUrl + ' ' + settings.cartFormSelector, function() {
+    $cartContainer.load('/cart form[action="/cart"]', function() {
 
       // With new elements we need to relink the adjust cart functions
       adjustCart();
@@ -1063,11 +1059,9 @@ var ajaxifyShopify = (function(module, $) {
       });
     }
 
-    var cartChangeURL = $cartContainer.data('cart-change-url');
-
     // If there is a regular link to remove an item, add attributes needed to ajaxify it
-    if ($('a[href^="' + cartChangeURL + '"]', $cartContainer).length) {
-      $('a[href^="' + cartChangeURL + '"]', $cartContainer).each(function() {
+    if ($('a[href^="/cart/change"]', $cartContainer).length) {
+      $('a[href^="/cart/change"]', $cartContainer).each(function() {
         var el = $(this).addClass('ajaxifyCart--remove');
       });
     }
@@ -1774,7 +1768,7 @@ timber.initCart = function() {
     ajaxifyShopify.init({
       method: theme.settings.cartType,
       wrapperClass: 'wrapper',
-      formSelector: '[data-product-form]',
+      formSelector: '#addToCartForm',
       addToCartSelector: '#addToCart',
       cartCountSelector: '.cart-count',
       toggleCartButton: '.cart-toggle',
@@ -2217,10 +2211,6 @@ theme.Product = (function() {
       stockSetting: $container.attr('data-stock'),
       incomingMessage: $container.attr('data-incoming-transfer'),
       selectors: {
-        unitPriceContainer: '[data-unit-price-container]',
-        unitPrice: '[data-unit-price]',
-        unitPriceBaseUnit: '[data-unit-price-base-unit]',
-        priceContainer: '[data-price]',
         originalSelectorId: 'productSelect-' + sectionId,
         $addToCart: $('#addToCart-' + sectionId),
         $SKU: $('.variant-sku', this.$container),
@@ -2267,7 +2257,7 @@ theme.Product = (function() {
       ajaxifyShopify.init({
         method: '{{ settings.ajax_cart_method }}',
         wrapperClass: 'wrapper',
-        formSelector: '[data-product-form]',
+        formSelector: '#addToCartForm-' + sectionId,
         addToCartSelector: '#addToCart-' + sectionId,
         cartCountSelector: '.cart-count',
         toggleCartButton: '.cart-toggle',
@@ -2465,37 +2455,19 @@ theme.Product = (function() {
 
       // Clean up variant labels if the Shopify-defined
       // defaults are the only ones left
-      this.simplifyVariantLabels();
+      this.simplifyVariantLabels(this.productSingleObject);
     },
 
-    simplifyVariantLabels: function() {
-      // Hide variant dropdown if the product has only the default variant
-      if ($('#productSelect-' + this.sectionId).is('[data-has-only-default-variant]')) {
+    simplifyVariantLabels: function(productObject) {
+      // Hide variant dropdown if only one exists and title contains 'Default'
+      if (productObject.variants.length === 1 && productObject.options.length === 1 && productObject.options[0].toLowerCase().indexOf('title') >= 0 && productObject.variants[0].title.toLowerCase().indexOf('default title') >= 0) {
         $('.selector-wrapper', this.$container).hide();
       }
     },
 
     productVariantCallback: function(variant) {
       var self = this;
-
       if (variant) {
-        //  Only change unit price for main product
-        var $priceContainer = $(this.settings.selectors.priceContainer, this.$container);
-
-        // Update unit price, if one is set
-        var $unitPriceContainer = $(this.settings.selectors.unitPriceContainer, $priceContainer);
-
-        $unitPriceContainer.removeClass('product-price-unit--available');
-
-        if (variant.unit_price_measurement) {
-          var $unitPrice = $(this.settings.selectors.unitPrice, $priceContainer);
-          var $unitPriceBaseUnit = $(this.settings.selectors.unitPriceBaseUnit, $priceContainer);
-
-          $unitPrice.text(Shopify.formatMoney(variant.unit_price, moneyFormat));
-          $unitPriceBaseUnit.text(this.getBaseUnit(variant));
-          $unitPriceContainer.addClass('product-price-unit--available');
-        }
-
         // Update variant image, if one is set
         if (variant.featured_image) {
           var newImg = variant.featured_image;
@@ -2507,9 +2479,10 @@ theme.Product = (function() {
         }
 
         if (variant.available) {
+          //alert('DEBUG: ' + variant.inventory_quantity);
           // We have a valid product variant, so enable the submit button
           this.settings.selectors.$addToCart.removeClass('disabled').prop('disabled', false);
-          this.settings.selectors.$addToCartText.html({{ 'products.product.add_to_cart' | t | json }});
+          //this.settings.selectors.$addToCartText.html({{ 'products.product.add_to_cart' | t | json }});
           $(this.settings.selectors.$shopifyPaymentButton, this.$container).show();
 
           this.settings.selectors.$variantQuantity.removeClass('is-visible');
@@ -2540,6 +2513,7 @@ theme.Product = (function() {
           // Variant is sold out, disable the submit button
           this.settings.selectors.$addToCart.addClass('disabled').prop('disabled', true);
           this.settings.selectors.$addToCartText.html({{ 'products.product.sold_out' | t | json }});
+          //this.settings.selectors.$addToCartText.html({{ 'products.product.backorder' | t | json }});
           $(this.settings.selectors.$shopifyPaymentButton, this.$container).hide();
 
           this.settings.selectors.$variantQuantity.removeClass('is-visible');
@@ -2553,6 +2527,17 @@ theme.Product = (function() {
           }
 
           this.settings.selectors.$quantityElements.hide();
+        }
+        
+        // Update variant title, sku, bin
+        if (variant.title.toLowerCase().indexOf('default title') < 0) {
+          $('#variant-title').text(' (' + variant.title + ')');
+        }
+        if (variant.sku) {
+          $('#variant-sku').text('SKU: ' + variant.sku);
+        }
+        if (variant.barcode) {
+          $('#variant-bin').text('BIN: ' + variant.barcode);
         }
 
         // Regardless of stock, update the product price
@@ -2570,7 +2555,7 @@ theme.Product = (function() {
             var a11yComparePrice = Shopify.formatMoney(variant.compare_at_price, moneyFormat);
 
             customPriceFormat = ' <span aria-hidden="true">' + customPrice + '</span>';
-            customPriceFormat += ' <span aria-hidden="true"><small><s>' + comparePrice + '</s></small></span>';
+            customPriceFormat += ' <span aria-hidden="true"><s>' + comparePrice + '</s></span>';
             customPriceFormat += ' <span class="visually-hidden"><span class="visually-hidden">{{ "products.general.regular_price" | t }}</span> ' + a11yComparePrice + '</span>';
             customPriceFormat += ' <span class="visually-hidden"><span class="visually-hidden">{{ "products.general.sale_price" | t }}</span> ' + a11yPrice + '</span>';
           }
@@ -2595,13 +2580,6 @@ theme.Product = (function() {
         this.settings.selectors.$quantityElements.hide();
         $(this.settings.selectors.$shopifyPaymentButton, this.$container).hide();
       }
-    },
-
-    getBaseUnit: function (variant) {
-      return variant.unit_price_measurement.reference_value === 1
-        ? variant.unit_price_measurement.reference_unit
-        : variant.unit_price_measurement.reference_value +
-            variant.unit_price_measurement.reference_unit;
     }
   });
 
@@ -2645,22 +2623,6 @@ theme.Product = (function() {
 
   return Product;
 
-})();
-
-window.theme = window.theme || {};
-
-theme.Search = (function() {
-  function Search(container) {
-    var $container = (this.$container = $(container));
-    timber.cacheSelectors();
-    timber.resizeElements($container);
-
-    $(window).resize(function() {
-      timber.resizeElements($container);
-    });
-  }
-
-  return Search;
 })();
 
 theme.Slideshow = function(el) {
@@ -2771,6 +2733,5 @@ $(document).ready(function() {
   sections.register('list-collections-template', theme.ListCollections);
   sections.register('map-section', theme.Maps);
   sections.register('product-template', theme.Product);
-  sections.register('search-template', theme.Search);
   sections.register('slideshow-section', theme.SlideshowSection);
 });

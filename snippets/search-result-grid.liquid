@@ -2,6 +2,10 @@
   {% assign grid_item_width = 'large--one-third medium--one-half' %}
 {% endunless %}
 
+{% unless current_collection %}
+  {% assign current_collection = collection %}
+{% endunless %}
+
 {% assign on_sale = false %}
 {% if item.compare_at_price > item.price %}
   {% assign on_sale = true %}
@@ -12,22 +16,43 @@
   {% assign sold_out = false %}
 {% endif %}
 
+{% assign archived = true %}
+{% assign mpn = null %}
+{% assign bin = null %}
+{% for tag in item.tags %}
+  {% if tag contains 'active' %}
+    {% assign archived = false %}
+  {% elsif tag contains 'mpn_' %}
+  	{% assign mpn = tag | split: '_' | last %}
+  {% elsif tag contains 'bin_' %}
+  	{% assign bin = tag | split: '_' | last %}
+  {% endif %}
+{% endfor %}
+
 {%- assign width = '195' -%}
 {%- assign height = '125' -%}
 
-<div class="grid-item search-result {{ grid_item_width }}{% if sold_out %} sold-out{% endif %}{% if on_sale %} on-sale{% endif %}">
+{% for variant in item.variants %}
 
-  <a href="{{ item.url }}" class="product-grid-item">
+<div class="grid-item search-result {{ grid_item_width }}{%if archived %} archived{% elsif sold_out %} sold-out{% endif %}{% if on_sale %} on-sale{% endif %}">
+
+  <a href="{% if variant.title != 'Default Title' %}{{ variant.url | within: current_collection | split: '?' | first }}{% else %}{{ item.url | within: current_collection | split: '?' | first }}{% endif %}" class="product-grid-item">
 
     {% if item.object_type == 'product' %}
       {% if item.featured_image %}
       <div class="product-grid-image">
         <div class="product-grid-image--centered">
-          {% if sold_out %}
+          {% if archived %}
+            <div class="badge badge--archived"><span class="badge-label">{{ 'products.product.archived' | t }}</span></div>
+          {% elsif sold_out %}
             <div class="badge badge--sold-out"><span class="badge-label">{{ 'products.product.sold_out' | t }}</span></div>
           {% endif %}
           {% if item.featured_image %}
-            {%- assign image = item.featured_image -%}
+            {% if variant.featured_image %}
+              {%- assign image = variant.featured_image -%}
+            {% else %}
+              {%- assign image = item.featured_image -%}
+            {% endif %}
             {%- assign max_width = width | plus: 0 -%}
             {%- assign max_height = height | plus: 0 -%}
 
@@ -60,35 +85,48 @@
       </div>
       {% endif %}
 
-      <p>{{ item.title }}</p>
-
-      <div class="product-item--price">
-        <span class="h1 medium--left">
-          {% if on_sale and section.settings.product_show_compare_at_price %}
-            <span class="visually-hidden">{{ "products.general.sale_price" | t }}</span>
-          {% else %}
-            <span class="visually-hidden">{{ "products.general.regular_price" | t }}</span>
-          {% endif %}
-          {% include 'price' with item.price %}
-          {% if on_sale and section.settings.product_show_compare_at_price  %}
+      <p><span class="product-grid-item-title">{{ item.title }}{% if variant.title != 'Default Title' %} ({{ variant.title }}) {% endif %}</span><br />
+	  SKU: {{ variant.sku }}
+      {% comment %}
+        {% if bin and bin != '' %}-{{ bin }}{% endif %}
+   	  {% endcomment %}
+      </p>
+    
+      {% if archived == false%}
+        <div class="product-item--price">
+          <span class="h1 medium--left">
+            {% if on_sale and section.settings.product_show_compare_at_price %}
+              <span class="visually-hidden">{{ "products.general.sale_price" | t }}</span>
+            {% else %}
+              <span class="visually-hidden">{{ "products.general.regular_price" | t }}</span>
+            {% endif %}
+            {% include 'price' with variant.price %}
+            {% if on_sale and section.settings.product_show_compare_at_price  %}
+              <small>
+                <s>
+                  <span class="visually-hidden">{{ "products.general.regular_price" | t }}</span>
+                  {% include 'price' with variant.compare_at_price %}
+                </s>
+              </small><br/>
+            {% endif %}
+            {% if variant.inventory_management and variant.inventory_quantity > 0 %}
             <small>
-              <s>
-                <span class="visually-hidden">{{ "products.general.regular_price" | t }}</span>
-                {% include 'price' with item.compare_at_price %}
-              </s>
+              <span style="color:green;font-size:12px">{{ 'products.product.instock' | t }}</span>
             </small>
-          {% endif %}
-        </span>
+            {% elsif variant.inventory_management and variant.inventory_quantity <= 0 and sold_out == false %}
+          	<small>
+          	  <span style="color:darkorange;font-size:12px">{{ 'products.product.backorder' | t }}</span>
+            </small>
+            {% endif %}
+          </span>
 
-        {%- if item.first_available_variant.available and item.first_available_variant.unit_price_measurement -%}
-          {% include 'product-unit-price', variant: item.first_available_variant %}
-        {%- endif -%}
-      </div>
-      {% if on_sale and section.settings.product_show_saved_amount %}
-        <div class="sale-tag medium--right">
-          {% assign compare_price = item.compare_at_price %}
-          {% assign product_price = item.price %}
-          {% include 'price-sale' %}
+          {% if on_sale and section.settings.product_show_saved_amount %}
+            <span class="sale-tag medium--right">
+              {% assign compare_price = variant.compare_at_price %}
+              {% assign product_price = variant.price %}
+              {% include 'price-sale' %}
+            </span>
+          {% endif %}
         </div>
       {% endif %}
     {% else %}
@@ -125,3 +163,5 @@
   </a>
 
 </div>
+
+{% endfor %}

@@ -3,12 +3,12 @@
   This is mainly for advanced tagging, but will also help us strip
   out any tag categories from our tags (E.g. remove BRAND_ from BRAND_tag)
 {% endcomment %}
-{% if request.page_type == 'collection' and collection.all_tags.size > 0 %}
+{% if template.name == 'collection' and collection.all_tags.size > 0 %}
   {% assign categories = '' %}
   {% for tag in collection.all_tags %}
-    {% if tag contains '_' %}
+    {% if tag contains '_' %}{% unless tag contains 'mpn_' or tag contains 'bin_' or tag contains 'limit_' %}
       {% capture categories %}{% unless categories == blank  %}{{ categories }}|{% endunless %}{{ tag | split: '_' | first }}{% endcapture %}
-    {% endif %}
+    {% endunless %}{% endif %}
   {% endfor %}
   {% assign cat_array = categories | split: '|' | uniq %}
 {% endif %}

@@ -1,0 +1,150 @@
+<!doctype html>
+<html class="no-touch no-js">
+<head>
+  <script>(function(H){H.className=H.className.replace(/\bno-js\b/,'js')})(document.documentElement)</script>
+  <!-- Basic page needs ================================================== -->
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+  
+  {% if settings.favicon %}
+  <link rel="shortcut icon" href="{{ settings.favicon | img_url: '32x32' }}" type="image/png" />
+  {% endif %}
+  
+  {% if template == '404' %}
+  <meta http-equiv="refresh" content="0; URL={{ shop.url }}" />
+  {% endif %}
+  
+  <meta name="google-site-verification" content="l-9y5MnJdHKO9vXbSwLuPG-xj0wHzh62gEqMffXV_cw" />
+
+  <!-- Title and description ================================================== -->
+  <title>
+  {{ page_title | remove: "tag:active "}}
+    {% if current_tags %}{% assign current_tags_joined = current_tags | join: ', ' %} &ndash; {{ 'general.meta.tags' | t: tags: current_tags_joined }}{% endif %}
+    {% if current_page != 1 %} &ndash; {{ 'general.meta.page' | t: page: current_page }}{% endif %}
+    {% unless page_title contains shop.name %}
+      {% if template == 'collection' or template == 'product' or template == 'search' %} in {% else %} | {% endif %}{{ shop.name }}
+    {% endunless %}
+  </title>
+
+  {% if page_description %}
+    <meta name="description" content="{{ page_description | escape }}">
+  {% endif %}
+
+  <!-- Product meta ================================================== -->
+  {% include 'social-meta-tags' %}
+
+  <!-- Helpers ================================================== -->
+  <link rel="canonical" href="{{ canonical_url }}">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+
+  <!-- CSS ================================================== -->
+  {{ 'theme.scss.css' | asset_url | stylesheet_tag }}
+
+  <!-- Header hook for plugins ================================================== -->
+  {{ content_for_header }}
+
+  {% comment %}
+    If you store has customers disabled, you can remove the following JS file
+  {% endcomment %}
+  {% if template.directory == 'customers' %}
+    {{ 'shopify_common.js' | shopify_asset_url | script_tag }}
+    {{ 'customer_area.js'  | shopify_asset_url | script_tag }}
+  {% endif %}
+
+  {{ 'jquery-2.2.3.min.js' | asset_url | script_tag }}
+
+  <script src="{{ 'lazysizes.min.js' | asset_url }}" async="async"></script>
+  <script src="{{ 'vendor.js' | asset_url }}" defer="defer"></script>
+  <script src="{{ 'theme.js' | asset_url }}" defer="defer"></script>
+
+
+
+      {{ 'paymentfont.scss.css' | asset_url | stylesheet_tag }}
+    
+{% include 'hulkcode_common' %}{% if template contains 'product' or template contains 'cart' %}<script src='https://volumediscount.hulkapps.com/hulkcode.js' defer='defer'></script>{% endif %}</head>
+
+<body id="{{ page_title | handle }}" class="{% if customer %}customer-logged-in {% endif %}template-{{ template | replace: '.', ' ' | truncatewords: 1, '' | handle }}" >
+
+  {% section 'announcement-bar' %}
+  
+  {% section 'header' %}
+
+  <main class="wrapper main-content{% if template.name == blank %} main-content--no-template{% endif %}" role="main">
+
+    {{ content_for_layout }}
+
+  </main>
+
+  {% section 'footer' %}
+
+  <script>
+
+  var moneyFormat = '{{ shop.money_format }}';
+
+  var theme = {
+    strings:{
+      product:{
+        unavailable: {{ 'products.product.unavailable' | t | json }},
+        will_be_in_stock_after:{{ 'products.product.will_be_in_stock_after' | t: date: '[date]' | json }},
+        only_left:{{ 'products.product.only_left' | t: count: '1' | json }}
+      },
+      navigation:{
+        more_link: {{ 'layout.navigation.more' | t | json }}
+      },
+      map:{
+        addressError: {{ 'map.errors.address_error' | t | json }},
+        addressNoResults: {{ 'map.errors.address_no_results' | t | json }},
+        addressQueryLimit: {{ 'map.errors.address_query_limit_html' | t | json }},
+        authError: {{ 'map.errors.auth_error_html' | t | json }}
+      }
+    },
+    settings:{
+      cartType: {{ settings.ajax_cart_method | json }}
+    }
+  }
+  </script>
+
+{% if settings.ajax_cart_method != 'page' %}
+
+  {% include 'ajax-cart-template' %}
+
+{% endif %}
+
+  <script>
+    /* Product Tag Filters - Good for any number of filters on any type of collection pages */
+    var collFilters = jQuery('.coll-filter');
+    collFilters.change(function() {
+      var newTags = [];
+      collFilters.each(function() {
+        if (jQuery(this).val()) {
+          newTags.push(jQuery(this).val());
+        }
+      });
+      if (newTags.length) {
+        var query = newTags.join('+');
+        window.location.href = jQuery('{{ 'tag' | link_to_tag: 'tag' }}').attr('href').replace('/' + 'tag', '/' + query);
+      }
+      else {
+        {% if collection.handle %}
+        window.location.href = '/collections/{{ collection.handle }}';
+        {% elsif collection.products.first.type == collection.title %}
+        window.location.href = '{{ collection.title | url_for_type }}';
+        {% elsif collection.products.first.vendor == collection.title %}
+        window.location.href = '{{ collection.title | url_for_vendor }}';
+        {% endif %}
+      }
+    });
+  </script>
+  
+{{ 'booster-page-speed-optimizer.js' | asset_url | script_tag }}
+
+<!-- **BEGIN** Hextom USB Integration // Main Include - DO NOT MODIFY -->
+    {% render 'hextom_usb_main', product: product, customer: customer %}
+    <!-- **END** Hextom USB Integration // Main Include - DO NOT MODIFY -->
+
+<!-- **BEGIN** Hextom SPM Integration // Main Include - DO NOT MODIFY -->
+    {% render 'hextom_spm_main', product: product, customer: customer %}
+    <!-- **END** Hextom SPM Integration // Main Include - DO NOT MODIFY -->
+{% render 'quantity-breaks-now', customer: customer, template: template, product: product, cart: cart %}
+        </body>
+</html>

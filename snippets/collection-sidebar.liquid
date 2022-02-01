@@ -68,26 +68,20 @@
   {% endif %}
 {% else %}
   <h2 class="h3">{{ 'collections.sidebar.shop_by' | t }}</h2>
-  {% if request.page_type == 'collection' and collection.all_tags.size > 0 %}
+  {% if template.name == 'collection' and collection.all_tags.size > 0 %}
 
     {% comment %}
       Provide a 'catch-all' link at the top of the list,
       we'd check against the collection.handle, product type, and vendor.
     {% endcomment %}
     <ul>
-      {%- if current_tags -%}
+      {% if current_tags %}
         <li class="active-filter">
           {% comment %}
             Good for /collections/all collection and regular collections
           {% endcomment %}
-          {%- if collection.handle -%}
-            {%- if collection.url == blank -%}
-              {% assign collection_url = routes.all_products_collection_url %}
-            {%- else -%}
-              {% assign collection_url = collection.url %}
-            {%- endif -%}
-
-            <a href="{{ collection_url }}">
+          {% if collection.handle %}
+            <a href="/collections/{{ collection.handle }}">
               {{ 'collections.sidebar.all' | t }}
               {% unless collection.title == 'Products' %}
               {{ collection.title }}
@@ -97,17 +91,17 @@
           {% comment %}
             Good for automatic type collections
           {% endcomment %}
-          {%- elsif collection.current_type -%}
+          {% elsif collection.current_type %}
             <a href="{{ collection.current_type | url_for_type }}">{{ 'collections.sidebar.all_collection' | t: collection_title: collection.title }}</a>
 
           {% comment %}
             Good for automatic vendor collections
           {% endcomment %}
-          {%- elsif collection.current_vendor -%}
+          {% elsif collection.current_vendor %}
             <a href="{{ collection.current_vendor | url_for_vendor }}">{{ 'collections.sidebar.all_collection' | t: collection_title: collection.title }}</a>
-          {%- endif -%}
+          {% endif %}
         </li>
-      {%- endif -%}
+      {% endif %}
 
       {% comment %}
         And for the good stuff, loop through the tags themselves.

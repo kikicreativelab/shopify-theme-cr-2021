@@ -2,7 +2,7 @@
 {% if section.settings.blog_show_date or section.settings.blog_show_author %}
   <div class="featured-blog__meta">
     {% if section.settings.blog_show_date %}
-      {% capture date %}<strong><time pubdate datetime="{{ article.published_at | date: '%Y-%m-%dT%H:%M:%SZ' }}">{{ article.published_at | date: format: 'date' }}</time></strong>{% endcapture %}
+      {% capture date %}<strong><time pubdate datetime="{{ article.published_at | date: '%Y-%m-%d' }}">{{ article.published_at | date: format: 'month_day_year' }}</time></strong>{% endcapture %}
     {% endif %}
     {% if section.settings.blog_show_author %}
       {% capture author %}<strong>{{ article.author }}</strong>{% endcapture %}

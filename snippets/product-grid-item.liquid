@@ -6,6 +6,10 @@
   {%- assign image_size = '600x600' -%}
 {% endunless %}
 
+{% unless current_collection %}
+  {% assign current_collection = collection %}
+{% endunless %}
+
 {% assign on_sale = false %}
 {% if product.compare_at_price > product.price %}
   {% assign on_sale = true %}
@@ -16,17 +20,38 @@
   {% assign sold_out = false %}
 {% endif %}
 
-<div class="grid-item {{ grid_item_width }}{% if sold_out %} sold-out{% endif %}{% if on_sale %} on-sale{% endif %}">
+{% assign archived = true %}
+{% assign mpn = null %}
+{% assign bin = null %}
+{% for tag in product.tags %}
+  {% if tag contains 'active' %}
+    {% assign archived = false %}
+  {% elsif tag contains 'mpn_' %}
+  	{% assign mpn = tag | split: '_' | last %}
+  {% elsif tag contains 'bin_' %}
+  	{% assign bin = tag | split: '_' | last %}
+  {% endif %}
+{% endfor %}
 
-  <a href="{{ product.url }}" class="product-grid-item">
+{% for variant in product.variants %}
+
+<div class="grid-item {{ grid_item_width }}{%if archived %} archived{% elsif sold_out %} sold-out{% endif %}{% if on_sale %} on-sale{% endif %}">
+
+  <a href="{% if variant.title != 'Default Title' %}{{ variant.url | within: current_collection }}{% else %}{{ product.url | within: current_collection }}{% endif %}" class="product-grid-item">
     <div class="product-grid-image">
       <div class="product-grid-image--centered">
-        {% if sold_out %}
+        {% if archived %}
+          <div class="badge badge--archived"><span class="badge-label">{{ 'products.product.archived' | t }}</span></div>
+        {% elsif sold_out %}
           <div class="badge badge--sold-out"><span class="badge-label">{{ 'products.product.sold_out' | t }}</span></div>
         {% endif %}
 
         {% if product.featured_image %}
-          {%- assign image = product.featured_image -%}
+          {% if variant.featured_image %}
+            {%- assign image = variant.featured_image -%}
+          {% else %}
+            {%- assign image = product.featured_image -%}
+          {% endif %}
           {%- assign max_width = width | plus: 0 -%}
           {%- assign max_height = height | plus: 0 -%}
 
@@ -60,35 +85,54 @@
       </div>
     </div>
 
-    <p>{{ product.title }}</p>
-
-    <div class="product-item--price">
-      <span class="h1 medium--left">
-        {% if on_sale %}
-          <span class="visually-hidden">{{ "products.general.sale_price" | t }}</span>
-        {% else %}
-          <span class="visually-hidden">{{ "products.general.regular_price" | t }}</span>
-        {% endif %}
-        {% include 'price' with product.price %}
-        {% if on_sale and section.settings.product_show_compare_at_price %}
+    <p><span class="product-grid-item-title">{{ product.title }}{% if variant.title != 'Default Title' %} ({{ variant.title }}) {% endif %}</span><br />
+      SKU: {{ variant.sku }}
+      {% comment %}
+      {% if bin and bin != '' %}
+      <br/>BIN: {{ bin }}
+      {% endif %}
+      {% endcomment %}
+      </p>
+      
+    {% if archived == false%}
+      <div class="product-item--price">
+        <span class="h1 medium--left">
+          {% if on_sale %}
+            <span class="visually-hidden">{{ "products.general.sale_price" | t }}</span>
+          {% else %}
+            <span class="visually-hidden">{{ "products.general.regular_price" | t }}</span>
+          {% endif %}
+          {% include 'price' with variant.price %}
+          {% if on_sale and section.settings.product_show_compare_at_price %}
+            <small>
+              <s>
+                <span class="visually-hidden">{{ "products.general.regular_price" | t }}</span>
+                {% include 'price' with variant.compare_at_price %}
+              </s>
+            </small><br/>
+          {% endif %}
+          
+          {% if variant.inventory_management and variant.inventory_quantity > 0 %}
           <small>
-            <s>
-              <span class="visually-hidden">{{ "products.general.regular_price" | t }}</span>
-              {% include 'price' with product.compare_at_price %}
-            </s>
+          	<span class="visually-hidden">{{ "products.product.instock" | t }}</span>
+          	<span style="color:green;font-size:12px">{{ 'products.product.instock' | t }}</span>
           </small>
-        {% endif %}
-      </span>
+          {% elsif variant.inventory_management and variant.inventory_quantity <= 0 and sold_out == false %}
+          <small>
+          	<span class="visually-hidden">{{ "products.product.backorder" | t }}</span>
+          	<span style="color:darkorange;font-size:12px">{{ 'products.product.backorder' | t }}</span>
+          </small>
+          {% endif %}
+        </span>
 
-      {%- if product.selected_or_first_available_variant.available and product.selected_or_first_available_variant.unit_price_measurement -%}
-        {% include 'product-unit-price', variant: product.selected_or_first_available_variant %}
-      {%- endif -%}
-    </div>
-    {% if on_sale and section.settings.product_show_saved_amount %}
-      <div class="sale-tag{% unless section.settings.show_compare_at_price %} medium--right{% endunless %}{% if section.settings.product_reviews_enable %} has-reviews{% endif %}">
-        {% assign compare_price = product.compare_at_price %}
-        {% assign product_price = product.price %}
-        {% include 'price-sale' %}
+        {% if on_sale and section.settings.product_show_saved_amount %}
+          <span class="sale-tag{% unless section.settings.show_compare_at_price %} medium--right{% endunless %}{% if section.settings.product_reviews_enable %} has-reviews{% endif %}">
+            {% assign compare_price = product.compare_at_price %}
+            {% assign product_price = product.price %}
+            {% include 'price-sale' %}
+          </span>
+        {% endif %}
+        
       </div>
     {% endif %}
 
@@ -97,4 +141,10 @@
     {% endif %}
   </a>
 
+
+<!-- **BEGIN** Hextom USB Integration // Collection Include - DO NOT MODIFY -->
+    {% render 'hextom_usb_coll', product: product %}
+    <!-- **END** Hextom USB Integration // Collection Include - DO NOT MODIFY -->
 </div>
+
+{% endfor %}

@@ -4,10 +4,10 @@
 {% endcomment %}
 
 <div class="collection-view">
-  <a title="Grid view" class="change-view{% if section.settings.grid %} collection-view--active{% endif %}" data-view="grid">
+  <a title="Grid view" class="change-view{% unless template.suffix == 'list' %} collection-view--active{% endunless %}" data-view="grid">
     <span class="icon icon-collection-view-grid"></span>
   </a>
-  <a title="List view" class="change-view{% if section.settings.num_products %} collection-view--active{% endif %}" data-view="list">
+  <a title="List view" class="change-view{% if template.suffix == 'list' %} collection-view--active{% endif %}" data-view="list">
     <span class="icon icon-collection-view-list"></span>
   </a>
 </div>

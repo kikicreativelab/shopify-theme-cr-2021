@@ -1,289 +1,621 @@
-<div class="product-template__container page-width"
-  id="ProductSection-{{ section.id }}"
-  data-section-id="{{ section.id }}"
-  data-section-type="product"
-  data-enable-history-state="true"
->
-  {% comment %}
-    Get first variant, or deep linked one
-  {% endcomment %}
-  {%- assign current_variant = product.selected_or_first_available_variant -%}
-  {%- assign product_image_zoom_size = '1024x1024' -%}
-  {%- assign product_image_scale = '2' -%}
-  {%- assign enable_zoom = section.settings.enable_zoom -%}
-  {%- assign compare_at_price = current_variant.compare_at_price -%}
-  {%- assign price = current_variant.price -%}
+<div id="ProductSection" data-section-id="{{ section.id }}" data-section-type="product-template" data-zoom-toggle="zoom-in" data-zoom-enabled="{{ section.settings.product_image_zoom_enable }}" data-related-enabled="{{ section.settings.product_related_enable }}" data-social-sharing="{{ section.settings.social_sharing }}" data-show-compare-at-price="{{ section.settings.product_show_compare_at_price }}" data-stock="{{ section.settings.product_quantity_message }}" data-incoming-transfer="{{ section.settings.product_incoming_message }}" data-ajax-cart-method="{{ settings.ajax_cart_method }}">
+{% include 'breadcrumb' %}
 
-  {% case section.settings.image_size %}
-    {% when 'small' %}
-      {%- assign product_image_width = 'medium-up--one-third' -%}
-      {%- assign product_description_width = 'medium-up--two-thirds' -%}
-      {%- assign product_thumbnail_width = 'medium-up--one-third' -%}
-      {%- assign height = 345 -%}
-    {% when 'medium' %}
-      {%- assign product_image_width = 'medium-up--one-half' -%}
-      {%- assign product_description_width = 'medium-up--one-half' -%}
-      {%- assign product_thumbnail_width = 'medium-up--one-quarter' -%}
-      {%- assign height = 530 -%}
-    {% when 'large' %}
-      {%- assign product_image_width = 'medium-up--two-thirds' -%}
-      {%- assign product_description_width = 'medium-up--one-third' -%}
-      {%- assign product_thumbnail_width = 'medium-up--one-fifth' -%}
-      {%- assign height = 720 -%}
-    {% when 'full' %}
-      {%- assign product_image_width = '' -%}
-      {%- assign product_description_width = '' -%}
-      {%- assign product_thumbnail_width = 'medium-up--one-eighth' -%}
-      {%- assign height = 1090 -%}
-      {%- assign enable_zoom = false -%}
-  {% endcase %}
+{% case section.settings.add_to_cart_button_size %}
+  {% when 'small' %}
+    {% assign btn_class = 'btn' %}
+  {% when 'medium' %}
+    {% assign btn_class = 'btn btn--wide' %}
+  {% when 'large' %}
+    {% assign btn_class = 'btn btn--full btn--large' %}
+{% endcase %}
 
-  <div class="grid product-single{% if section.settings.enable_payment_button %} product-single--{{ section.settings.image_size }}-image{% endif %}">
-    <div class="grid__item product-single__photos {{ product_image_width }}{% if section.settings.image_size == 'full' %} product-single__photos--full{% endif %}">
-      {%- assign featured_image = product.selected_or_first_available_variant.featured_image | default: product.featured_image -%}
-      {% for image in product.images %}
-        {% capture img_id %}FeaturedImage-{{ section.id }}-{{ image.id }}{% endcapture %}
-        {% capture img_class %}product-featured-img{% endcapture %}
-        {% capture zoom_img_id %}FeaturedImageZoom-{{ section.id }}-{{ image.id }}{% endcapture %}
-        {% capture img_wrapper_id %}{{ zoom_img_id }}-wrapper{% endcapture %}
-        {%- assign img_url = image | img_url: '1x1' | replace: '_1x1.', '_{width}x.' -%}
+{% if section.settings.add_to_cart_button_size == 'large' %}
+  <style>
+    .selector-wrapper select, .product-variants select {
+      max-width: 100%;
+    }
+  </style>
+{% endif %}
 
-        {% include 'image-style' with small_style: true, width: height, height: height, wrapper_id: img_wrapper_id, img_id: img_id %}
+{% if section.settings.product_quantity_enable == false %}
+  <style>
+    .selector-wrapper select, .product-variants select {
+      margin-bottom: 13px;
+    }
+  </style>
+{% endif %}
 
-        <div id="{{ img_wrapper_id }}" class="product-single__photo-wrapper js">
-          <div
-          id="{{ zoom_img_id }}"
-          style="padding-top:{{ 1 | divided_by: image.aspect_ratio | times: 100}}%;"
-          class="product-single__photo{% if enable_zoom %} js-zoom-enabled{% endif %}{% if product.images.size > 1 %} product-single__photo--has-thumbnails{% endif %}{% unless featured_image == image %} hide{% endunless %}"
-          data-image-id="{{ image.id }}"
-          {% if enable_zoom %} data-zoom="{{ image | img_url: product_image_zoom_size, scale: product_image_scale }}"{% endif %}>
-            <img id="{{ img_id }}"
-                 class="feature-row__image {{ img_class }} lazyload{% unless featured_image == image %} lazypreload{% endunless %}"
-                 src="{{ image | img_url: '300x300' }}"
-                 data-src="{{ img_url }}"
-                 data-widths="[180, 360, 540, 720, 900, 1080, 1296, 1512, 1728, 2048]"
-                 data-aspectratio="{{ image.aspect_ratio }}"
-                 data-sizes="auto"
-                 tabindex="-1"
-                 alt="{{ image.alt | escape }}">
-          </div>
+{% assign archived = true %}
+{% assign backorder = true %}
+{% assign long_backorder = false %}
+{% assign special_order = false %}
+{% assign pre_order = false %}
+{% assign limit = 0 %}
+{% assign bin = blank %}
+{% for tag in product.tags %}
+  {% if tag contains 'active' %}
+    {% assign archived = false %}
+  {% elsif tag contains 'nobackorder' %}
+    {% assign backorder = false %}
+  {% elsif tag contains 'longbackorder' %}
+    {% assign long_backorder = true %}
+  {% elsif tag contains 'specialorder' %}
+    {% assign special_order = true %}
+  {% elsif tag contains 'preorder' %}
+    {% assign pre_order = true %}
+  {% elsif tag contains 'limit' %}
+    {% assign limit = tag | split: '_' | last | plus:0 %}
+  {% elsif tag contains 'mpn_' %}
+  	{% assign mpn = tag | split: '_' | last %}
+  {% elsif tag contains 'bin_' %}
+  	{% assign bin = tag | split: '_' | last %}
+  {% endif %}
+{% endfor %}
+
+<div class="grid" itemscope itemtype="http://schema.org/Product">
+  <meta itemprop="url" content="{{ shop.url }}{{ product.url }}">
+  <meta itemprop="image" content="{{ product.featured_image.src | img_url: 'grande' }}">
+
+  <div class="grid-item large--two-fifths">
+    <div class="grid">
+      <div class="grid-item large--eleven-twelfths text-center">
+        <div class="product-photo-container" id="productPhotoContainer-{{ section.id }}">
+          {% assign featured_image = product.selected_or_first_available_variant.featured_image | default: product.featured_image %}
+          {% for image in product.images %}
+            {%- capture img_wrapper_id -%}productPhotoWrapper-{{ section.id }}-{{ image.id }}{%- endcapture -%}
+            {%- assign max_width = 700 -%}
+            {%- assign max_height = 1024 -%}
+
+            {%- include 'image-logic' with width: max_width, height: max_height -%}
+
+            {%- assign img_url = image | img_url: '1x1' | replace: '_1x1.', '_{width}x.' -%}
+            <div id="{{ img_wrapper_id }}" class="lazyload__image-wrapper{% unless image == featured_image %} hide{% endunless %}" data-image-id="{{ image.id }}" style="max-width: {{ max_width }}px">
+              <div class="no-js product__image-wrapper" style="padding-top:{{ 1 | divided_by: image.aspect_ratio | times: 100}}%;">
+                <img id="{{ img_id }}"
+                  {% if forloop.first == true %}
+                  src="{{ featured_image | img_url: '300x300' }}"
+                  {% endif %}
+                  class="lazyload no-js lazypreload"
+                  data-src="{{ img_url }}"
+                  data-widths="[180, 360, 540, 720, 900, 1080, 1296, 1512, 1728, 2048]"
+                  data-aspectratio="{{ image.aspect_ratio }}"
+                  data-sizes="auto"
+                  alt="{{ image.alt | escape }}"
+                  {% if section.settings.product_image_zoom_enable %} data-zoom="{{ image | img_url: '1024x1024', scale: 2 }}"{% endif %}>
+              </div>
+            </div>
+            {% if forloop.first == true %}
+              <noscript>
+                <img src="{{ image | img_url: '580x' }}"
+                  srcset="{{ image | img_url: '580x' }} 1x, {{ image | img_url: '580x', scale: 2 }} 2x"
+                  alt="{{ image.alt }}" style="opacity:1;">
+              </noscript>
+            {% endif %}
+          {% endfor %}
         </div>
-      {% endfor %}
 
-      <noscript>
-        {% capture product_image_size %}{{ height }}x{% endcapture %}
-        <img src="{{ featured_image | img_url: product_image_size, scale: product_image_scale }}" alt="{{ featured_image.alt }}" id="FeaturedImage-{{ section.id }}" class="product-featured-img" style="max-width: {{ height }}px;">
-      </noscript>
+        {% if product.images.size > 1 %}
+          <ul class="product-photo-thumbs grid-uniform" id="productThumbs-{{ section.id }}">
 
-      {% if product.images.size > 1 %}
-        {% if product.images.size > 3 %}
-          {%- assign enable_thumbnail_slides = true -%}
-        {% endif %}
-
-        <div class="thumbnails-wrapper{% if enable_thumbnail_slides == true %} thumbnails-slider--active{% endif %}">
-          {% if enable_thumbnail_slides == true %}
-            <button type="button" class="btn btn--link medium-up--hide thumbnails-slider__btn thumbnails-slider__prev thumbnails-slider__prev--{{ section.id }}">
-              {% include 'icon-chevron-left' %}
-              <span class="icon__fallback-text">{{ 'sections.slideshow.previous_slide' | t }}</span>
-            </button>
-          {% endif %}
-          <ul class="grid grid--uniform product-single__thumbnails product-single__thumbnails-{{ section.id }}">
             {% for image in product.images %}
-              <li class="grid__item {{ product_thumbnail_width }} product-single__thumbnails-item js">
-                <a href="{{ image.src | img_url: product_image_zoom_size, scale: product_image_scale }}"
-                   class="text-link product-single__thumbnail product-single__thumbnail--{{ section.id }}"
-                   data-thumbnail-id="{{ image.id }}"
-                   {% if enable_zoom %}data-zoom="{{ image.src | img_url: product_image_zoom_size, scale: product_image_scale }}"{% endif %}>
-                     <img class="product-single__thumbnail-image" src="{{ image.src | img_url: '110x110', scale: 2 }}" alt="{{ 'sections.featured_product.gallery_thumbnail_alt' | t: imageAlt: image.alt | escape }}">
+              <li class="grid-item medium-down--one-quarter large--one-quarter">
+                <a href="{{ image.src | img_url: '1024x1024', scale: 2 }}" class="product-photo-thumb product-photo-thumb-{{ section.id }}" data-image-id="{{ image.id }}">
+                  <img src="{{ image.src | img_url: 'compact' }}" alt="{{ image.alt | escape }}">
                 </a>
               </li>
             {% endfor %}
+
           </ul>
-          {% if enable_thumbnail_slides == true %}
-            <button type="button" class="btn btn--link medium-up--hide thumbnails-slider__btn thumbnails-slider__next thumbnails-slider__next--{{ section.id }}">
-              {% include 'icon-chevron-right' %}
-              <span class="icon__fallback-text">{{ 'sections.slideshow.next_slide' | t }}</span>
-            </button>
-          {% endif %}
-        </div>
-      {% endif %}
+        {% endif %}
+
+      </div>
     </div>
+  </div>
 
-    <div class="grid__item {{ product_description_width }}">
-      <div class="product-single__meta">
+  <div class="grid-item large--three-fifths">
+    
+    {% if archived %}
+    <div id="archivedMessage"><p>{{ 'products.product.archived_item' | t }}</p></div>
+	{% endif %}
+    
+    {% assign variant = product.selected_or_first_available_variant %}
+    
+    <h1 class="h2" itemprop="name">{{ product.title }}{% if variant.title != 'Default Title' %}<span id="variant-title"> ({{ variant.title }})</span>{% endif %}</h1>
 
-        <h1 class="product-single__title">{{ product.title }}</h1>
+    {% if section.settings.product_vendor_enable %}
+      <p class="product-meta" itemprop="brand">{{ product.vendor }}</p>
+    {% endif %}
 
-          <div class="product__price">
-            {% include 'product-price', variant: current_variant %}
-          </div>
+    <div itemprop="offers" itemscope itemtype="http://schema.org/Offer">
 
-          {%- if shop.taxes_included or shop.shipping_policy.body != blank -%}
-            <div class="product__policies rte">
-              {%- if shop.taxes_included -%}
-                {{ 'products.product.include_taxes' | t }}
-              {%- endif -%}
-              {%- if shop.shipping_policy.body != blank -%}
-                {{ 'products.product.shipping_policy_html' | t: link: shop.shipping_policy.url }}
-              {%- endif -%}
-            </div>
+      <p class="product-meta" id="variant-sku" itemprop="sku">SKU: {{ variant.sku }}</p>
+      
+      {% unless mpn == blank %}
+        <p class="product-meta" itemprop="mpn">MPN: {{ mpn }}</p>
+      {% endunless %}
+      
+      {% unless bin == blank %}
+        <p class="product-meta" itemprop="bin">BIN: {{ bin }}</p>
+      {% endunless %}
+      
+      <meta itemprop="priceCurrency" content="{{ shop.currency }}">
+      <meta itemprop="price" content="{{ variant.price | divided_by: 100.00 }}">
+
+      <ul class="inline-list product-meta">
+        {% if archived == false %}
+          <li>
+            <span id="productPrice-{{ section.id }}" class="h1">
+              {% include 'price' with variant.price %}
+            </span>
+          </li>
+          {% if product.compare_at_price_max > product.price and section.settings.product_show_saved_amount %}
+          <li>
+            <span id="comparePrice-{{ section.id }}" class="sale-tag large">
+              {% assign compare_price = variant.compare_at_price %}
+              {% assign product_price = variant.price %}
+              {% include 'price-sale' %}
+            </span>
+          </li>
+          {% endif %}
+        {% endif %}
+        {% if section.settings.product_reviews_enable %}
+          <li class="product-meta--review">
+            <span class="shopify-product-reviews-badge" data-id="{{ product.id }}"></span>
+          </li>
+        {% endif %}
+      </ul>
+
+      {%- if shop.taxes_included or shop.shipping_policy.body != blank -%}
+        <div class="product__policies rte">
+          {%- if shop.taxes_included -%}
+            {{ 'products.general.include_taxes' | t }}
           {%- endif -%}
+        </div>
+      {%- endif -%}
 
-          {% capture "form_classes" -%}
-            product-form product-form-{{ section.id }}{% unless section.settings.show_variant_labels %} product-form--hide-variant-labels{% endunless %}{% if section.settings.enable_payment_button and product.has_only_default_variant%} product-form--payment-button-no-variants{% endif %}
-          {%- endcapture %}
+      <hr id="variantBreak" class="hr--clear hr--small">
+      
+      {% if archived == false %}
+        <link itemprop="availability" href="http://schema.org/{% if product.available %}InStock{% else %}OutOfStock{% endif %}">
 
-          {% form 'product', product, class:form_classes, novalidate: 'novalidate', data-product-form: '' %}
-            {% unless product.has_only_default_variant %}
-              {% for option in product.options_with_values %}
-                <div class="selector-wrapper js product-form__item">
-                  <label {% if option.name == 'default' %}class="label--hidden" {% endif %}for="SingleOptionSelector-{{ forloop.index0 }}">
-                    {{ option.name }}
-                  </label>
-                  <select class="single-option-selector single-option-selector-{{ section.id }} product-form__input" id="SingleOptionSelector-{{ forloop.index0 }}" data-index="option{{ forloop.index }}">
-                    {% for value in option.values %}
-                      <option value="{{ value | escape }}"{% if option.selected_value == value %} selected="selected"{% endif %}>{{ value }}</option>
-                    {% endfor %}
-                  </select>
-                </div>
-              {% endfor %}
-            {% endunless %}
+        {% capture "form_class" -%}
+          addToCartForm{% if section.settings.enable_payment_button %} addToCartForm--payment-button{% endif %}
+        {%- endcapture %}
 
-            <select name="id" id="ProductSelect-{{ section.id }}" class="product-form__variants no-js">
-              {% for variant in product.variants %}
-                {% if variant.available %}
-                  <option {% if variant == product.selected_or_first_available_variant %} selected="selected" {% endif %} value="{{ variant.id }}">
-                    {{ variant.title }}
-                  </option>
-                {% else %}
-                  <option disabled="disabled">{{ variant.title }} - {{ 'products.product.sold_out' | t }}</option>
-                {% endif %}
-              {% endfor %}
-            </select>
+        {%- capture "form_id" -%}addToCartForm-{{ section.id }}{%- endcapture -%}
 
-            {% if section.settings.show_quantity_selector %}
-              <div class="product-form__item product-form__item--quantity">
-                <label for="Quantity-{{ section.id }}">{{ 'products.product.quantity' | t }}</label>
-                <input type="number" id="Quantity-{{ section.id }}" name="quantity" value="1" min="1" class="product-form__input" pattern="[0-9]*" data-quantity-input>
-              </div>
-            {% endif %}
+        {% form 'product', product, class:form_class, id:form_id %}
+          <select name="id" id="productSelect-{{ section.id }}" class="product-variants product-variants-{{ section.id }}">
+            {% for variant in product.variants %}
+              {% if variant.available %}
 
-            <div class="product-form__error-message-wrapper product-form__error-message-wrapper--hidden" data-error-message-wrapper role="alert">
-              {% include 'icon-error' %} <span class="product-form__error-message" data-error-message>{{ 'products.product.quantity_minimum_message' | t }}</span>
+                <option {% if variant == product.selected_or_first_available_variant %} selected="selected" {% endif %} data-sku="{{ variant.sku }}" value="{{ variant.id }}">{{ variant.title }} - {{ variant.price | money_with_currency }}</option>
+
+              {% else %}
+                <option disabled="disabled">
+                  {{ variant.title }} - {{ 'products.product.sold_out' | t }}
+                </option>
+              {% endif %}
+            {% endfor %}
+          </select>
+
+          {% if section.settings.product_quantity_enable %}
+            <label for="quantity" class="quantity-selector quantity-selector-{{ section.id }}">{{ 'products.product.quantity' | t }}</label>
+            <input type="number" id="quantity" name="quantity" value="1" min="1" class="quantity-selector">
+          {% endif %}
+
+          {% if section.settings.product_quantity_message %}
+            <div id="variantQuantity-{{ section.id }}" class="variant-quantity {% if variant.inventory_management and variant.inventory_quantity < 10 and variant.inventory_quantity > 0 %} is-visible{% endif %}">
+                {% include 'svg-definitions' with 'stock-icon' %}
+                  {% assign qty = variant.inventory_quantity %}
+                  <span id="variantQuantity-{{ section.id }}__message">{{ 'products.product.only_left' | t: count: qty }}</span>
             </div>
+          {% endif %}
 
-            <div class="product-form__item product-form__item--submit{% if section.settings.enable_payment_button %} product-form__item--payment-button{% endif %}{% if product.has_only_default_variant %} product-form__item--no-variants{% endif %}">
-              <button type="submit" name="add" {% unless current_variant.available %}disabled="disabled"{% endunless %} class="btn product-form__cart-submit{% if section.settings.enable_payment_button %} btn--secondary-accent{% endif %}" data-add-to-cart>
-                <span data-add-to-cart-text>
-                  {% unless current_variant.available %}
-                    {{ 'products.product.sold_out' | t }}
-                  {% else %}
-                    {{ 'products.product.add_to_cart' | t }}
-                  {% endunless %}
-                </span>
-              </button>
-              {% if section.settings.enable_payment_button %}
-                {{ form | payment_button }}
+          {% if section.settings.product_incoming_message %}
+            <div id="variantIncoming-{{ section.id }}" class="variant-quantity {% if variant.inventory_management and variant.inventory_quantity <= 0 and variant.incoming %} is-visible{% endif %}">
+              {% if variant.inventory_management and variant.inventory_quantity == 0 or variant.inventory_quantity < 0 and current_variant.incoming %}
+                {% include 'svg-definitions' with 'stock-icon' %}
+                {% if variant.available %}
+                  {% assign date = variant.next_incoming_date | date: "month_day_year" %}
+                  <span id="variantIncoming-{{ section.id }}__message">{{ 'products.product.will_not_ship_until' | t: date: date  }}</span>
+                {% else %}
+                  {% assign date = variant.next_incoming_date | date: "month_day_year" %}
+                  <span id="variantIncoming-{{ section.id }}__message">{{ 'products.product.will_be_in_stock_after' | t: date: date }}</span>
+                {% endif %}
               {% endif %}
             </div>
-          {% endform %}
-        </div>
+          {% endif %}
+      
+      	  {% if limit > 0 %}
+      		<div id="variantLimit-{{ section.id }}" class="variant-quantity is-visible">
+      		{% include 'svg-definitions' with 'stock-icon' %}
+            	<span id="variantLimit-{{ section.id }}__message">{{ 'products.product.order_limit' | t: count: limit }}</span>
+      		</div>
+          {% endif %}
+      
+      	  {% if variant.inventory_management and variant.inventory_quantity <= 0 and product.available%}
+          	{% if special_order == true %}
+      		  <div id="variantLeadTime-{{ section.id }}" class="variant-quantity is-visible">
+      		  {% include 'svg-definitions' with 'stock-icon' %}
+                  {% assign qty = variant.inventory_quantity %}
+                  <span id="variantLeadTime-{{ section.id }}__message">{{ 'products.product.special_message' | t }}</span>
+      		  </div>
+      		{% elsif pre_order == false %}
+      		  <div id="variantLeadTime-{{ section.id }}" class="variant-quantity is-visible">
+      		  {% include 'svg-definitions' with 'stock-icon' %}
+                  {% assign qty = variant.inventory_quantity %}
+                  <span id="variantLeadTime-{{ section.id }}__message">{{ 'products.product.backorder' | t }}. {{ 'products.product.typical_lead' | t }}</span>
+      		  </div>
+      		{% endif %}
+      	  {% endif %}
 
-        {%- comment -%}
-          Live region for announcing updated price and availability to screen readers
-        {%- endcomment -%}
-        <p class="visually-hidden" data-product-status
-          aria-live="polite"
-          role="status"
-        ></p>
+          <div class="payment-buttons payment-buttons--{{ section.settings.add_to_cart_button_size }}">
+            <button type="submit" name="add" id="addToCart-{{ section.id }}" class="{{ btn_class }} btn--add-to-cart{% if section.settings.enable_payment_button %} btn--secondary-accent{% endif %}">
+              <span class="icon icon-cart"></span>
+              {% if variant.inventory_management and variant.inventory_quantity <= 0 %}              	
+              	{% if special_order == true %}
+              	  <span id="addToCartText-{{ section.id }}">{{ 'products.product.special_order' | t }}</span>
+              	{% elsif pre_order == true %}
+              	  <span id="addToCartText-{{ section.id }}">{{ 'products.product.pre_order' | t }}</span>
+                {% else %}
+              	  <span id="addToCartText-{{ section.id }}">{{ 'products.product.backorder' | t }}</span>
+                {% endif %}
+              {% else %}
+              	<span id="addToCartText-{{ section.id }}">{{ 'products.product.add_to_cart' | t }}</span>
+              {% endif %}
+              
+            </button>
 
-        <div class="product-single__description rte">
-          {{ product.description }}
-        </div>
+            {% if section.settings.enable_payment_button %}
+              {{ form | payment_button }}
+            {% endif %}
+          </div>
+        {% endform %}
+      
+        {% if section.settings.product_free_shipping_countdown %}
+      
+          {% if section.settings.product_free_shipping_link == blank %}
+            <div class="product-free-shipping">
+            {% else %}
+            <a href="{{ section.settings.product_free_shipping_link }}" class="product-free-shipping product-free-shipping--link">
+            {% endif %}
 
-        {% if section.settings.show_share_buttons %}
-          {% include 'social-sharing', share_title: product.title, share_permalink: product.url, share_image: product %}
+          {% capture product_free_shipping_value %}{{ section.settings.product_free_shipping_threshold | times: 100 }}{% endcapture %}
+          {% assign product_cart_total = cart.total_price %}
+          {% assign product_free_shipping_value_left = product_free_shipping_value | minus: product_cart_total %}
+          {% assign product_free_shipping_value_left_money = product_free_shipping_value_left | money %}
+        
+          {% capture product_free_shipping_notqualified %}
+            {{ section.settings.product_free_shipping_notqualified | replace: '[price]', product_free_shipping_value_left_money }}
+          {% endcapture %}
+          {% assign product_free_shipping_qualified = section.settings.product_free_shipping_qualified %}
+        
+          {% if product_free_shipping_value_left > 0 %}
+            {% assign product_free_shipping_message = product_free_shipping_notqualified %}
+          {% else %}
+            {% assign product_free_shipping_message = product_free_shipping_qualified %}
+          {% endif %}
+        
+            <p class="product-free-shipping-message">{{ product_free_shipping_message }}</p>
+
+          {% if section.settings.product_free_shipping_link == blank %}
+            </div>
+            {% else %}
+            </a>
+          {% endif %}
         {% endif %}
+      
+      {% endif %}
+      
+      {% if section.settings.social_sharing_products %}
+        {% include 'social-sharing' %}
+      {% endif %}
+
+      <hr class="{% if section.settings.enable_payment_button %}product-template-hr{% endif %}">
+    </div>
+  </div>
+  
+  <div class="grid-item">
+    <div class="product-description rte" itemprop="description">
+      {{ product.description }}
     </div>
   </div>
 </div>
 
-{% if collection %}
-  <div class="text-center return-link-wrapper page-width">
-    <a href="{{ collection.url }}" class="btn btn--secondary btn--has-icon-before return-link">
-      {% include 'icon-arrow-left' %}
-      {{ 'products.product.back_to_collection' | t: title: collection.title }}
-    </a>
-  </div>
+{% if section.settings.related_products_enable %}
+  {% assign grid_item_width = 'large--one-fifth medium--one-third small--one-half' %}
+  {% include 'related-products' %}
+{% endif %}
+
+{% if section.settings.product_reviews_enable %}
+  <hr>
+  <div id="shopify-product-reviews" data-id="{{ product.id }}">{{ product.metafields.spr.reviews }}</div>
 {% endif %}
 
 {% unless product == empty %}
   <script type="application/json" id="ProductJson-{{ section.id }}">
     {{ product | json }}
   </script>
+  {% if section.settings.product_quantity_message or section.settings.product_incoming_message %}
+    <script type="application/json" id="VariantJson-{{ section.id }}">
+      [
+        {% for variant in product.variants %}
+          {% capture variant_inventory %}
+            {%- if section.settings.product_incoming_message -%}
+              ,
+              "incoming": {% if variant.incoming == 'null' or variant.next_incoming_date == null %}false{% else %}{{ variant.incoming | default: false | json }}{% endif %},
+              "inventory_policy": {{ variant.inventory_policy | json }},
+              "next_incoming_date": {{ variant.next_incoming_date | date: format: 'month_day_year' | json }}
+            {%- endif -%}
+            {%- if section.settings.product_quantity_message -%}
+              ,
+              "inventory_quantity": {{ variant.inventory_quantity | json }}
+            {%- endif -%}
+          {% endcapture %}
+          {
+            {{ variant_inventory | remove_first: ',' | strip }}
+          }{% unless forloop.last %},{% endunless %}
+        {% endfor %}
+      ]
+    </script>
+  {% endif %}
 {% endunless %}
+</div>
 
 
 
 {% schema %}
 {
   "name": {
-    "de": "Produktseiten",
-    "en": "Product pages",
-    "es": "Páginas de productos",
-    "fr": "Pages de produits",
-    "it": "Pagine di prodotto",
-    "ja": "商品ページ",
-    "nl": "Productpagina's",
-    "pt-BR": "Páginas de produtos",
-    "zh-CN": "产品页面",
-    "zh-TW": "產品頁面"
+    "de": "Produkt",
+    "en": "Product",
+    "es": "Producto",
+    "fr": "Produit",
+    "it": "Prodotto",
+    "ja": "商品",
+    "pt-BR": "Produto"
   },
+  "class": "product-template-section",
   "settings": [
     {
-      "type": "select",
-      "id": "image_size",
+      "type": "checkbox",
+      "id": "product_image_zoom_enable",
       "label": {
-        "de": "Foto-Größe",
-        "en": "Image size",
-        "es": "Tamaño de la imagen",
-        "fr": "Taille des images",
-        "it": "Dimensione immagine",
-        "ja": "画像のサイズ",
-        "nl": "Afbeeldingsformaat",
-        "pt-BR": "Tamanho da imagem",
-        "zh-CN": "图片尺寸",
-        "zh-TW": "圖片尺寸"
+        "de": "Aktivieren des Bildzooms",
+        "en": "Enable image zoom",
+        "es": "Habilitar zoom de imagen",
+        "fr": "Activer le zoom sur image",
+        "it": "Abilita lo zoom dell'immagine",
+        "ja": "画像ズームを有効にする",
+        "pt-BR": "Ativar o zoom da imagem"
+      }
+    },
+    {
+      "type": "checkbox",
+      "id": "product_quantity_enable",
+      "label": {
+        "de": "Quantitäts-Auswahl anzeigen",
+        "en": "Show quantity selector",
+        "es": "Mostrar selector de cantidad",
+        "fr": "Afficher le sélecteur de quantité",
+        "it": "Mostra selettore quantità",
+        "ja": "数量セレクターを表示する",
+        "pt-BR": "Exibir seletor de quantidade"
+      }
+    },
+    {
+      "type": "checkbox",
+      "id": "product_quantity_message",
+      "label": {
+        "de": "Meldung zur verbleibenden Restmenge anzeigen",
+        "en": "Show remaining quantity message",
+        "es": "Mostrar mensaje de cantidad restante",
+        "fr": "Afficher le message de quantité restante",
+        "it": "Mostra messaggio con la quantità rimanente",
+        "ja": "残数のメッセージを表示する",
+        "pt-BR": "Exibir uma mensagem de quantidade restante"
+      }
+    },
+    {
+      "type": "checkbox",
+      "id": "product_incoming_message",
+      "label": {
+        "de": "Meldung zu eingehender Warenverschiebung bei Ausverkauf anzeigen",
+        "en": "Show incoming stock transfer message when sold out",
+        "es": "Mostrar mensaje de inventario entrante cuando se agote el producto",
+        "fr": "Afficher le message de transfert de stock entrant lorsqu'épuisé",
+        "it": "Mostra messaggio trasferimento stock in entrata quando esaurito",
+        "ja": "売り切れ時に入荷予定のメッセージを表示する",
+        "pt-BR": "Exibir uma mensagem de estoque quando um item estiver esgotado"
+      }
+    },
+    {
+      "type": "checkbox",
+      "id": "product_vendor_enable",
+      "label": {
+        "de": "Produktverkäufer anzeigen",
+        "en": "Show product vendor",
+        "es": "Mostrar proveedor del producto",
+        "fr": "Afficher le distributeur du produit",
+        "it": "Mostra fornitore prodotto",
+        "ja": "商品の販売元を表示する",
+        "pt-BR": "Exibir fornecedor do produto"
+      }
+    },
+    {
+      "type": "checkbox",
+      "id": "product_show_saved_amount",
+      "label": {
+        "de": "Gesparten Betrag anzeigen",
+        "en": "Show saved amount",
+        "es": "Mostrar monto ahorrado",
+        "fr": "Afficher le montant économisé",
+        "it": "Mostra importo risparmiato",
+        "ja": "保存された金額を表示",
+        "pt-BR": "Exibir valor salvo"
       },
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "product_show_compare_at_price",
+      "label": {
+        "de": "Vergleich zum Preis anzeigen",
+        "en": "Show compare at price",
+        "es": "Mostrar precio de comparación",
+        "fr": "Afficher le prix normal",
+        "it": "Mostra Confronta al prezzo",
+        "ja": "価格比較を表示する",
+        "pt-BR": "Exibir comparação de preço"
+      },
+      "default": false
+    },
+    {
+      "type": "checkbox",
+      "id": "related_products_enable",
+      "label": {
+        "de": "Ähnliche Produkte anzeigen",
+        "en": "Show related products",
+        "es": "Mostrar productos relacionados",
+        "fr": "Afficher les produits associés",
+        "it": "Mostra prodotti correlati",
+        "ja": "関連商品を表示する",
+        "pt-BR": "Exibir produtos relacionados"
+      }
+    },
+    {
+      "type": "checkbox",
+      "id": "enable_payment_button",
+      "label": {
+        "de": "Dynamischen Checkout-Button anzeigen",
+        "en": "Show dynamic checkout button",
+        "es": "Mostrar botón de pago dinámico",
+        "fr": "Afficher le bouton de passage à la caisse dynamique",
+        "it": "Mostra pulsante di check-out dinamico",
+        "ja": "ダイナミックチェックアウトボタンを表示する",
+        "pt-BR": "Exibir botão dinâmico de checkout"
+      },
+      "info": {
+        "de": "Jeder Kunde sieht seine bevorzugte Zahlungsmethode aus den in Ihrem Shop verfügbaren Zahlungsmethoden wie PayPal oder Apple Pay. [Mehr Infos](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
+        "en": "Each customer will see their preferred payment method from those available on your store, such as PayPal or Apple Pay. [Learn more](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
+        "es": "Cada cliente verá su forma de pago preferida entre las disponibles en tu tienda, como PayPal o Apple Pay. [Más información](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
+        "fr": "Chaque client verra son moyen de paiement préféré parmi ceux qui sont proposés sur votre boutique, tels que PayPal ou Apple Pay. [En savoir plus](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
+        "it": "Ogni cliente vedrà il suo metodo di pagamento preferito tra quelli disponibili nel tuo negozio, come PayPal o Apple Pay. [Maggiori informazioni](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
+        "ja": "PayPalやApple Payなど、ストアで利用可能な希望の決済方法がお客様に表示されます。[もっと詳しく](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
+        "pt-BR": "Cada cliente verá seu método de pagamento preferido dentre os disponíveis na loja, como PayPal ou Apple Pay. [Saiba mais](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)"
+      },
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "product_free_shipping_countdown",
+      "label": "Show free shipping countdown",
+      "info": "Tells the customer how much they need to add to their cart to receive free shipping (only appears when at least one item is in the cart).",
+      "default": false
+    },
+    {
+      "type": "range",
+      "id": "product_free_shipping_threshold",
+      "min": 25,
+      "max": 150,
+      "step": 5,
+      "unit": "$",
+      "label": "Free shipping threshold",
+      "default": 100,
+      "info":   "The amount at which customers receive free shipping (must match your shipping settings)."
+    },
+    {
+      "type": "textarea",
+      "id": "product_free_shipping_notqualified",
+      "label": "Free shipping (not qualified) message",
+      "default": "Add just [price] to your cart to receive free shipping!"
+    },
+    {
+      "type": "textarea",
+      "id": "product_free_shipping_qualified",
+      "label": "Free shipping (qualified) message",
+      "default": "Your order qualifies for free shipping!"
+    },
+    {
+      "type": "url",
+      "id": "product_free_shipping_link",
+      "label": "Link",
+      "info": "Optional"
+    },
+    {
+      "type": "checkbox",
+      "id": "social_sharing_products",
+      "label": {
+        "de": "Teilen von Produkten aktivieren",
+        "en": "Enable product sharing",
+        "es": "Habilitar compartir productos",
+        "fr": "Activer le partage de produits",
+        "it": "Abilita condivisione del prodotto",
+        "ja": "商品の共有を有効にする",
+        "pt-BR": "Habilitar o compartilhamento de produtos"
+      },
+      "default": true
+    },
+    {
+      "type": "checkbox",
+      "id": "product_reviews_enable",
+      "label": {
+        "de": "Produktbewertungen aktivieren",
+        "en": "Enable product reviews",
+        "es": "Habilitar reseñas de productos",
+        "fr": "Activer les avis sur les produits",
+        "it": "Abilita recensioni di prodotto",
+        "ja": "商品レビューを有効にする",
+        "pt-BR": "Habilitar as avaliações de produtos"
+      },
+      "info": {
+        "de": "Installieren Sie die kostenlose Shopify-App [Product Reviews](https://apps.shopify.com/product-reviews), um Produktbewertungen hinzuzufügen.",
+        "en": "Install the free Shopify [Product Reviews](https://apps.shopify.com/product-reviews) app to add product reviews.",
+        "es": "Instala la app gratis de Shopify [Reseñas de productos](https://apps.shopify.com/product-reviews) para agregar reseñas de productos.",
+        "fr": "Installer l'application Shopify gratuite [Product Reviews](https://apps.shopify.com/product-reviews) pour ajouter des avis sur les produits.",
+        "it": "Installa l'app gratuita di Shopify [Recensioni Prodotto](https://apps.shopify.com/product-reviews) per aggiungere delle recensioni di prodotto.",
+        "ja": "無料のShopify[商品レビュー](https://apps.shopify.com/product-reviews)をインストールしてください商品レビューを追加するためのアプリです。",
+        "pt-BR": "Instale o app Shopify [Avaliações de Produtos](https://apps.shopify.com/product-reviews) para adicionar avaliações de produtos."
+      }
+    },
+    {
+      "type": "select",
+      "id": "add_to_cart_button_size",
+      "label": {
+        "de": "Variantenauswahl und Schaltflächengröße",
+        "en": "Variant picker and button size",
+        "es": "Selector de variantes y tamaño del botón",
+        "fr": "Sélecteur de variante et taille du bouton",
+        "it": "Dimensione selettore variante e pulsante",
+        "ja": "バリエーションピッカーとボタンサイズ",
+        "pt-BR": "Seletor de variantes e tamanho do botão"
+      },
+      "default": "small",
       "options": [
         {
           "value": "small",
           "label": {
             "de": "Klein",
             "en": "Small",
-            "es": "Pequeña",
+            "es": "Pequeño",
             "fr": "Petite",
-            "it": "Piccolo",
+            "it": "Small",
             "ja": "小",
-            "nl": "Klein",
-            "pt-BR": "Pequeno",
-            "zh-CN": "小",
-            "zh-TW": "小型"
+            "pt-BR": "Pequeno"
           }
         },
         {
           "value": "medium",
           "label": {
-            "de": "Mittel",
+            "de": "Mitte",
             "en": "Medium",
-            "es": "Mediana",
+            "es": "Mediano",
             "fr": "Moyenne",
-            "it": "Medio",
+            "it": "Medium",
             "ja": "中",
-            "nl": "Gemiddeld",
-            "pt-BR": "Médio",
-            "zh-CN": "中等",
-            "zh-TW": "中等"
+            "pt-BR": "Médio"
           }
         },
         {
@@ -293,145 +625,12 @@
             "en": "Large",
             "es": "Grande",
             "fr": "Grande",
-            "it": "Grande",
+            "it": "Large",
             "ja": "大",
-            "nl": "Groot",
-            "pt-BR": "Grande",
-            "zh-CN": "大",
-            "zh-TW": "大型"
-          }
-        },
-        {
-          "value": "full",
-          "label": {
-            "de": "Volle Breite",
-            "en": "Full-width",
-            "es": "Ancho completo",
-            "fr": "Pleine largeur",
-            "it": "Intera larghezza",
-            "ja": "全幅",
-            "nl": "Volledige breedte",
-            "pt-BR": "Largura completa",
-            "zh-CN": "全宽",
-            "zh-TW": "完整寬度"
+            "pt-BR": "Grande"
           }
         }
-      ],
-      "default": "medium"
-    },
-    {
-      "type": "checkbox",
-      "id": "show_quantity_selector",
-      "label": {
-        "de": "Quantitäts-Auswahl anzeigen",
-        "en": "Show quantity selector",
-        "es": "Mostrar selector de cantidad",
-        "fr": "Afficher le sélecteur de quantité",
-        "it": "Mostra selettore quantità",
-        "ja": "数量セレクターを表示する",
-        "nl": "Hoeveelheidskiezer weergeven",
-        "pt-BR": "Exibir seletor de quantidade",
-        "zh-CN": "显示数量选择器",
-        "zh-TW": "顯示數量選擇器"
-      },
-      "default": false
-    },
-    {
-      "type": "checkbox",
-      "id": "show_variant_labels",
-      "label": {
-        "de": "Varianten-Etiketten anzeigen",
-        "en": "Show variant labels",
-        "es": "Mostrar etiquetas de variantes",
-        "fr": "Afficher le nom des variantes",
-        "it": "Mostra etichette varianti",
-        "ja": "バリエーションのラベルを表示する",
-        "nl": "Variantlabels weergeven",
-        "pt-BR": "Exibir etiquetas de variantes",
-        "zh-CN": "显示变体标签",
-        "zh-TW": "顯示子類選項標籤"
-      },
-      "default": true
-    },
-    {
-      "type": "checkbox",
-      "id": "show_vendor",
-      "label": {
-        "de": "Lieferanten anzeigen",
-        "en": "Show vendor",
-        "es": "Mostrar proveedor",
-        "fr": "Afficher les vendeurs",
-        "it": "Mostra fornitore",
-        "ja": "販売元を表示する",
-        "nl": "Leverancier weergeven",
-        "pt-BR": "Exibir fornecedor",
-        "zh-CN": "显示厂商",
-        "zh-TW": "顯示廠商"
-      },
-      "default": false
-    },
-    {
-      "type": "checkbox",
-      "id": "enable_zoom",
-      "label": {
-        "de": "Foto-Zoom zulassen",
-        "en": "Enable image zoom",
-        "es": "Habilitar zoom de imagen",
-        "fr": "Activer le zoom d'image",
-        "it": "Abilita lo zoom dell'immagine",
-        "ja": "画像ズームを有効にする",
-        "nl": "Inzoomen op afbeelding inschakelen",
-        "pt-BR": "Ativar o zoom da imagem",
-        "zh-CN": "启用图片缩放",
-        "zh-TW": "啟用圖片縮放"
-      },
-      "default": true
-    },
-    {
-      "type": "checkbox",
-      "id": "enable_payment_button",
-      "label": {
-        "de": "Dynamischen Checkout Button anzeigen",
-        "en": "Show dynamic checkout button",
-        "es": "Mostrar botón de pago dinámico",
-        "fr": "Afficher le bouton de passage à la caisse dynamique",
-        "it": "Mostra pulsante di check-out dinamico",
-        "ja": "ダイナミックチェックアウトボタンを表示する",
-        "nl": "Dynamische checkout knop weergeven",
-        "pt-BR": "Exibir botão dinâmico de finalização da compra",
-        "zh-CN": "显示动态结账按钮",
-        "zh-TW": "顯示動態結帳按鈕"
-      },
-      "info": {
-        "de": "Jeder Kunde sieht seine bevorzugte Zahlungsmethode aus den in Ihrem Shop verfügbaren Zahlungsmethoden wie PayPal oder Apple Pay. [Mehr Infos](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "en": "Each customer will see their preferred payment method from those available on your store, such as PayPal or Apple Pay. [Learn more](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "es": "Cada cliente verá su forma de pago preferida entre las disponibles en tu tienda, como PayPal o Apple Pay. [Más información](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "fr": "Chaque client verra son moyen de paiement préféré parmi ceux qui sont proposés sur votre boutique, tels que PayPal ou Apple Pay. [En savoir plus](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "it": "Ogni cliente vedrà il suo metodo di pagamento preferito tra quelli disponibili nel tuo negozio, come PayPal o Apple Pay. [Maggiori informazioni](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "ja": "PayPalやApple Payなど、ストアで利用可能な希望の決済方法がお客様に表示されます。[もっと詳しく] (https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "nl": "Elke klant ziet zijn of haar beschikbare voorkeursmethode om af te rekenen, zoals PayPal of Apple Pay. [Meer informatie](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "pt-BR": "Cada cliente verá seu método de pagamento preferido dentre os disponíveis na loja, como PayPal ou Apple Pay. [Saiba mais](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "zh-CN": "每位客户都可在您商店提供的付款方式中看到他们的首选付款方式，例如 PayPal 或 Apple Pay。[了解详细信息](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)",
-        "zh-TW": "每位客戶都可以在您商店內開放使用的付款方式中看見他們偏好使用的方式，如 PayPal、Apple Pay 等。[深入瞭解相關資訊](https://help.shopify.com/manual/using-themes/change-the-layout/dynamic-checkout)"
-      },
-      "default": true
-    },
-    {
-      "type": "checkbox",
-      "id": "show_share_buttons",
-      "label": {
-        "de": "Buttons für Social Media anzeigen",
-        "en": "Show social sharing buttons",
-        "es": "Mostrar botones para compartir en redes sociales",
-        "fr": "Affichez les boutons de partage sur les médias sociaux",
-        "it": "Mostra i pulsanti per la condivisione sui social",
-        "ja": "ソーシャル共有ボタンを表示する",
-        "nl": "Knoppen voor sociaal delen weergeven",
-        "pt-BR": "Exibir botões de compartilhamento em redes sociais",
-        "zh-CN": "显示社交分享按钮",
-        "zh-TW": "顯示社群分享按鈕"
-      },
-      "default": true
+      ]
     }
   ]
 }

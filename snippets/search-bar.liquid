@@ -1,9 +1,20 @@
-<form action="{{ routes.search_url }}" method="get" class="search-bar" role="search">
+<form onsubmit="searchSubmit(this)" action="/search" method="get" class="search-bar" role="search">
   <input type="hidden" name="type" value="product">
+  <input type="hidden" name="q" value="">
 
-  <input type="search" name="q" value="{{ search.terms | escape }}" placeholder="{{ 'layout.search_bar.placeholder' | t }}" aria-label="{{ 'layout.search_bar.placeholder' | t }}">
+  <input type="hidden" name="options[unavailable_products]" value="last">
+  <input type="hidden" name="options[prefix]" value="last">
+  <input type="search" id="s" value="{{ search.terms | escape | remove: "tag:active "}}" placeholder="{{ 'layout.search_bar.placeholder' | t }}" aria-label="{{ 'layout.search_bar.placeholder' | t }}">
   <button type="submit" class="search-bar--submit icon-fallback-text">
     <span class="icon icon-search" aria-hidden="true"></span>
     <span class="fallback-text">{{ 'layout.search_bar.submit' | t }}</span>
   </button>
 </form>
+
+<script>
+function searchSubmit(searchForm) {
+  if (searchForm.s.value != '') {
+  	searchForm.q.value = 'tag:active ' + searchForm.s.value;
+  }
+}
+</script>

@@ -7,7 +7,7 @@
 {% endcomment %}
   <script id="cartTemplate" type="text/template">
   {% raw %}
-    <form action="{{ routes.cart_url }}" method="post" class="cart-form" novalidate>
+    <form action="/cart" method="post" class="cart-form" novalidate>
       <div class="ajaxifyCart--products">
         {{#items}}
         <div class="ajaxifyCart--product">
@@ -21,6 +21,7 @@
                   <div class="grid-item three-quarters">
                     <a href="{{url}}" class="h4">{{name}}</a>
                     <p>{{variation}}</p>
+                    <p>{{tag}}</p>
                   </div>
                 </div>
               </div>
@@ -38,7 +39,7 @@
                   </div>
                   <div class="grid-item one-third text-right">
                     <p>
-                      <small><a href="{{ routes.cart_change_url }}?line={{line}}&amp;quantity=0" class="ajaxifyCart--remove" data-line="{{line}}">Remove</a></small>
+                      <small><a href="/cart/change?line={{line}}&amp;quantity=0" class="ajaxifyCart--remove" data-line="{{line}}">Remove</a></small>
                     </p>
                   </div>
                 </div>
@@ -58,7 +59,7 @@
   <script id="drawerTemplate" type="text/template">
   {% raw %}
     <div id="ajaxifyDrawer" class="ajaxify-drawer">
-      <div id="ajaxifyCart" class="ajaxifyCart--content {{wrapperClass}}" data-cart-url="{% endraw %}{{ routes.cart_url }}{% raw %}" data-cart-change-url="{% endraw %}{{ routes.cart_change_url }}{% raw %}"></div>
+      <div id="ajaxifyCart" class="ajaxifyCart--content {{wrapperClass}}"></div>
     </div>
     <div class="ajaxifyDrawer-caret"><span></span></div>
   {% endraw %}
@@ -66,14 +67,14 @@
   <script id="modalTemplate" type="text/template">
   {% raw %}
     <div id="ajaxifyModal" class="ajaxify-modal">
-      <div id="ajaxifyCart" class="ajaxifyCart--content" data-cart-url="{% endraw %}{{ routes.cart_url }}{% raw %}" data-cart-change-url="{% endraw %}{{ routes.cart_change_url }}{% raw %}"></div>
+      <div id="ajaxifyCart" class="ajaxifyCart--content"></div>
     </div>
   {% endraw %}
   </script>
   <script id="ajaxifyQty" type="text/template">
   {% raw %}
     <div class="ajaxifyCart--qty">
-      <input type="text" class="ajaxifyCart--num" value="{{itemQty}}" data-id="{{key}}" min="0" data-line="{{line}}" aria-label="quantity" pattern="[0-9]*">
+      <input type="text" class="ajaxifyCart--num" value="{{itemQty}}" data-id="{{key}}" min="0" data-line="{{line}}" aria-label="quantity" pattern="[0-9]*"">
       <span class="ajaxifyCart--qty-adjuster ajaxifyCart--add" data-id="{{key}}" data-line="{{line}}" data-qty="{{itemAdd}}">+</span>
       <span class="ajaxifyCart--qty-adjuster ajaxifyCart--minus" data-id="{{key}}" data-line="{{line}}" data-qty="{{itemMinus}}">-</span>
     </div>

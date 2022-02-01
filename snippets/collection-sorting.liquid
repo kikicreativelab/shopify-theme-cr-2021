@@ -1,10 +1,14 @@
 <div class="form-horizontal">
-  {% assign sort_by = collection.sort_by | default: collection.default_sort_by %}
   <label for="sortBy" class="small--hide">{{ 'collections.sorting.title' | t }}</label>
-  <select name="sort_by" aria-describedby="a11y-refresh-page-message" id="sortBy">
-    {% for option in collection.sort_options %}
-      <option value="{{ option.value }}"{% if sort_by == option.value %} selected="selected"{% endif %}>{{ option.name }}</option>
-    {% endfor %}
+  <select name="sortBy" id="sortBy">
+    <option value="manual">{{ 'collections.sorting.featured' | t }}</option>
+    <option value="best-selling">{{ 'collections.sorting.best_selling' | t }}</option>
+    <option value="title-ascending">{{ 'collections.sorting.az' | t }}</option>
+    <option value="title-descending">{{ 'collections.sorting.za' | t }}</option>
+    <option value="price-ascending">{{ 'collections.sorting.price_ascending' | t }}</option>
+    <option value="price-descending">{{ 'collections.sorting.price_descending' | t }}</option>
+    <option value="created-descending">{{ 'collections.sorting.date_descending' | t }}</option>
+    <option value="created-ascending">{{ 'collections.sorting.date_ascending' | t }}</option>
   </select>
 </div>
 
